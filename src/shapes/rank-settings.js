@@ -3,6 +3,7 @@ import { copySvg, delSvg } from '../infrastructure/assets.js';
 import { clickForAll, listen, classSingleAdd, evtTargetAttr } from '../infrastructure/util.js';
 import { modalCreate } from './modal-create.js';
 import { ShapeSmbl } from './shape-smbl.js';
+import { CanvasSmbl } from '../infrastructure/canvas-smbl.js';
 
 console.log('[RANK-SETTINGS] Module loaded at:', new Date().toISOString());
 
@@ -196,6 +197,36 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
           }
         } catch (err) {
           console.error('[rank-settings] Error applying style:', err);
+        }
+        
+        // Persist color and border classes to localStorage
+        try {
+          const ds = /** @type {any} */(shapeElement).dataset || {};
+          const rankId = ds.realRankId || ds.rankId;
+          const guildId = /** @type {any} */(canvas[CanvasSmbl]?.data)?.guildId;
+          if (rankId && guildId) {
+            const storageKey = `guild:${guildId}:rankStyles`;
+            let styles = {};
+            try {
+              const raw = window.localStorage.getItem(storageKey);
+              styles = raw ? JSON.parse(raw) : {};
+            } catch {}
+            
+            // Get all current style classes from the element
+            const classList = Array.from(shapeElement.classList);
+            const colorClass = classList.find(c => c.startsWith('cl-'));
+            const borderClasses = classList.filter(c => c.startsWith('bd-'));
+            
+            styles[rankId] = {
+              color: colorClass || null,
+              border: borderClasses.length > 0 ? borderClasses : null
+            };
+            
+            window.localStorage.setItem(storageKey, JSON.stringify(styles));
+            console.log('[rank-settings] Persisted styles for rank:', rankId, styles[rankId]);
+          }
+        } catch (err) {
+          console.error('[rank-settings] Error persisting styles:', err);
         }
         break;
       }
@@ -636,21 +667,51 @@ class RankSettings extends HTMLElement {
       }));
     });
 
-    // Role name inline input -> update shape text and preview
+    // Role name inline input -> update shape text, preview, and persist to database
     const roleInput = shadow.getElementById('roleName');
+    let saveTimeout = null;
     roleInput?.addEventListener('input', () => {
       try {
         const nextRole = /** @type {HTMLInputElement} */(roleInput).value || '';
         const textSrc = this._shapeElement.querySelector('[data-key="text"]');
-        const current = textSrc?.textContent || '';
-        const second = (current || '').split('\n')[1] || user;
-        const merged = `${nextRole}\n${second}`;
+        
+        // Get current user line (second line)
+        const tspans = textSrc?.querySelectorAll('tspan');
+        let second = user;
+        if (tspans && tspans.length >= 2) {
+          second = (tspans[1].textContent || '').trim();
+        } else {
+          const current = textSrc?.textContent || '';
+          second = (current || '').split('\n')[1] || user;
+        }
 
-        if (textSrc) { textSrc.textContent = merged; }
-        // Update shape data title (keeps inline textarea in sync). Rank nodes are fixed-size, so no auto-resize needed.
+        // Update source element tspan elements individually for proper line breaks
+        if (textSrc) {
+          const srcTspans = textSrc.querySelectorAll('tspan');
+          if (srcTspans && srcTspans.length >= 2) {
+            srcTspans[0].textContent = nextRole;
+            srcTspans[1].textContent = second;
+          } else {
+            // Fallback: recreate tspan structure
+            textSrc.innerHTML = '';
+            const tspan1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan1.setAttribute('x', textSrc.getAttribute('x') || '0');
+            tspan1.setAttribute('dy', '0');
+            tspan1.textContent = nextRole;
+            textSrc.appendChild(tspan1);
+            
+            const tspan2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            tspan2.setAttribute('x', textSrc.getAttribute('x') || '0');
+            tspan2.setAttribute('dy', '1.2em');
+            tspan2.textContent = second;
+            textSrc.appendChild(tspan2);
+          }
+        }
+
+        // Update shape data title (keeps inline textarea in sync)
         try {
           const dataAny = /** @type {any} */ (this._shapeElement[ShapeSmbl].data);
-          dataAny.title = merged;
+          dataAny.title = `${nextRole}\n${second}`;
         } catch (err) {
           console.error('[rank-settings] Error updating shape data:', err);
         }
@@ -662,10 +723,35 @@ class RankSettings extends HTMLElement {
           if (prevTspans.length >= 2) {
             prevTspans[0].textContent = nextRole;
             prevTspans[1].textContent = second;
-          } else {
-            prevText.textContent = merged;
           }
         }
+
+        // Debounced API call to persist name change to database
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+          const ds = /** @type {any} */(this._shapeElement).dataset || {};
+          const rankId = ds.realRankId || ds.rankId;
+          if (!rankId || !nextRole.trim()) return;
+          
+          console.log('[rank-settings] Saving rank name to database:', { rankId, name: nextRole.trim() });
+          fetch('/api/guild-hierarchy/ranks/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rankId, name: nextRole.trim() }),
+            credentials: 'include',
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              console.log('[rank-settings] Rank name saved successfully');
+            } else {
+              console.error('[rank-settings] Failed to save rank name:', data.error);
+            }
+          })
+          .catch(err => {
+            console.error('[rank-settings] Error saving rank name:', err);
+          });
+        }, 800); // 800ms debounce
       } catch (err) {
         console.error('[rank-settings] Error updating preview text:', err);
       }
