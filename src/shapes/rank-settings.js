@@ -194,7 +194,9 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
             const mainEl = shapeElement.querySelector('[data-key="main"]');
             mainEl?.removeAttribute('fill');
           }
-        } catch {}
+        } catch (err) {
+          console.error('[rank-settings] Error applying style:', err);
+        }
         break;
       }
       case 'del': {
@@ -208,7 +210,7 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
           }
           
           // Check if deletion is already in progress (prevent double-triggering)
-          if (shapeElement._deletionInProgress) {
+          if (/** @type {any} */(shapeElement)._deletionInProgress) {
             console.log('[rank-settings] Deletion already in progress, ignoring duplicate trigger');
             break;
           }
@@ -223,7 +225,7 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
               'Delete this rank and unassign all its members?',
               () => {
                 // Mark deletion as in progress
-                shapeElement._deletionInProgress = true;
+                /** @type {any} */(shapeElement)._deletionInProgress = true;
                 
                 console.log('[rank-settings] Calling API to delete rank:', rankId);
                 // Call the API to delete the rank from the database
@@ -248,7 +250,7 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
                       composed: true
                     });
                     document.dispatchEvent(event);
-                    shapeElement._deletionInProgress = false;
+                    /** @type {any} */(shapeElement)._deletionInProgress = false;
                   } else {
                     // Handle "rank not found" as success (means it was already deleted)
                     const errMsg = (data.error || '').toString().toLowerCase();
@@ -261,17 +263,17 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
                         composed: true
                       });
                       document.dispatchEvent(event);
-                      shapeElement._deletionInProgress = false;
+                      /** @type {any} */(shapeElement)._deletionInProgress = false;
                     } else {
                       console.error('[rank-settings] API returned error:', data.error);
-                      shapeElement._deletionInProgress = false;
+                      /** @type {any} */(shapeElement)._deletionInProgress = false;
                       showModal(data.error || 'Failed to delete rank', null, true);
                     }
                   }
                 })
                 .catch(err => {
                   console.error('[rank-settings] API call failed with error:', err);
-                  shapeElement._deletionInProgress = false;
+                  /** @type {any} */(shapeElement)._deletionInProgress = false;
                   showModal('Failed to delete rank: ' + err.message, null, true);
                 });
               },
@@ -282,7 +284,9 @@ export function rankSettingsPnlCreate(canvas, shapeElement, bottomX, bottomY) {
             // No rank ID (placeholder node), just delete from DOM
             shapeElement[ShapeSmbl].del();
           }
-        } catch {}
+        } catch (err) {
+          console.error('[rank-settings] Error during deletion:', err);
+        }
         break;
       }
       case 'copy': copyAndPast(canvas, [shapeElement]); break;
@@ -317,7 +321,10 @@ class RankSettings extends HTMLElement {
         const role = parts[0] || 'New Role';
         const user = parts[1] || 'Unfilled';
         return { role, user };
-      } catch { return { role: 'New Role', user: 'Unfilled' }; }
+      } catch (err) {
+        console.error('[rank-settings] Error getting lines:', err);
+        return { role: 'New Role', user: 'Unfilled' };
+      }
     };
     const { role, user } = getLines();
 
@@ -458,7 +465,7 @@ class RankSettings extends HTMLElement {
       } catch {
         rect.setAttribute('fill', '#1aaee5');
         rect.setAttribute('stroke', '#ffffff');
-        rect.setAttribute('stroke', '2');
+        rect.setAttribute('stroke-width', '2');
       }
       grp.appendChild(rect);
 
@@ -614,7 +621,9 @@ class RankSettings extends HTMLElement {
             case 'bd-dash': mainPrev.setAttribute('stroke-dasharray', '5'); break;
           }
         }
-      } catch {}
+      } catch (err) {
+        console.error('[rank-settings] Error syncing preview:', err);
+      }
     });
 
     // Commands: colors, borders, copy, delete
@@ -642,7 +651,9 @@ class RankSettings extends HTMLElement {
         try {
           const dataAny = /** @type {any} */ (this._shapeElement[ShapeSmbl].data);
           dataAny.title = merged;
-        } catch {}
+        } catch (err) {
+          console.error('[rank-settings] Error updating shape data:', err);
+        }
 
         // Update preview tspan elements individually for proper line breaks
         const prevText = this._previewGrp?.querySelector('[data-key="text"]');
@@ -655,7 +666,9 @@ class RankSettings extends HTMLElement {
             prevText.textContent = merged;
           }
         }
-      } catch {}
+      } catch (err) {
+        console.error('[rank-settings] Error updating preview text:', err);
+      }
     });
   }
 }
