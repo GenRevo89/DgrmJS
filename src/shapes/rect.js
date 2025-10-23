@@ -2,16 +2,20 @@ import { ceil, child, classAdd, classDel, positionSet } from '../infrastructure/
 import { rectTxtSettingsPnlCreate } from './rect-txt-settings.js';
 import { shapeCreate } from './shape-evt-proc.js';
 import { settingsPnlCreate } from './shape-settings.js';
+import { rankSettingsPnlCreate } from './rank-settings.js';
 import { ShapeSmbl } from './shape-smbl.js';
+import { CanvasSmbl } from '../infrastructure/canvas-smbl.js';
 
 /**
  * @param {CanvasElement} canvas
  * @param {RectData} rectData
  */
 export function rect(canvas, rectData) {
-	rectData.w = rectData.w ?? 96;
-	rectData.h = rectData.h ?? 48;
-	rectData.a = rectData.a ?? (rectData.t ? 1 : 2);
+	const isRank = Array.isArray(rectData.styles) && rectData.styles.includes('rank');
+	const isDomain = Array.isArray(rectData.styles) && rectData.styles.includes('domain');
+	rectData.w = rectData.w ?? (isRank ? 220 : (isDomain ? 200 : 96));
+	rectData.h = rectData.h ?? (isRank ? 88 : (isDomain ? 150 : 48));
+	rectData.a = rectData.a ?? (isRank ? 1 : (rectData.t ? 1 : 2));
 
 	const templ = `
 		<rect data-key="outer" data-evt-no data-evt-index="2" width="144" height="96" x="-72" y="-48" fill="transparent" stroke="transparent" stroke-width="0" />
@@ -27,6 +31,9 @@ export function rect(canvas, rectData) {
 		},
 		// onTextChange
 		txtEl => {
+			// For specialized rank rectangles, DO NOT auto-resize on text changes.
+			if (isRank) { resize(false); return; }
+
 			const textBox = txtEl.getBBox();
 			const newWidth = ceil(96, 48, textBox.width + (rectData.t ? 6 : 0)); // 6 px right padding for text shape
 			const newHeight = ceil(48, 48, textBox.height);
@@ -37,8 +44,8 @@ export function rect(canvas, rectData) {
 				resize();
 			}
 		},
-		// settingsPnlCreateFn
-		rectData.t ? rectTxtSettingsPnlCreate : settingsPnlCreate);
+		// settingsPnlCreateFn - use rankSettingsPnlCreate for rank rectangles, otherwise standard settings
+		isRank ? rankSettingsPnlCreate : (rectData.t ? rectTxtSettingsPnlCreate : settingsPnlCreate));
 
 	classAdd(shape.el, rectData.t ? 'shtxt' : 'shrect');
 
@@ -105,6 +112,83 @@ export function rect(canvas, rectData) {
 	if (rectData.w !== 96 || rectData.h !== 48) { resize(true); } else { shape.draw(); }
 
 	shape.el[ShapeSmbl].draw = resize;
+
+	// Add resize handle for domain shapes
+	if (isDomain) {
+		const resizeHandle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+		resizeHandle.setAttribute('r', '6');
+		resizeHandle.setAttribute('fill', '#00ff00');
+		resizeHandle.setAttribute('stroke', '#fff');
+		resizeHandle.setAttribute('stroke-width', '1');
+		resizeHandle.setAttribute('cursor', 'nwse-resize');
+		resizeHandle.setAttribute('data-key', 'resize-handle');
+		shape.el.appendChild(resizeHandle);
+
+		// Position handle at bottom-right corner
+		const updateHandlePosition = () => {
+			const x = rectData.w / 2;
+			const y = rectData.h / 2;
+			resizeHandle.setAttribute('cx', x.toString());
+			resizeHandle.setAttribute('cy', y.toString());
+		};
+		updateHandlePosition();
+
+		let isResizing = false;
+		let startX = 0;
+		let startY = 0;
+		let startW = rectData.w;
+		let startH = rectData.h;
+		let startPosX = rectData.position.x;
+		let startPosY = rectData.position.y;
+
+		const onPointerDown = (evt) => {
+			evt.stopPropagation();
+			isResizing = true;
+			startX = evt.clientX;
+			startY = evt.clientY;
+			startW = rectData.w;
+			startH = rectData.h;
+			startPosX = rectData.position.x;
+			startPosY = rectData.position.y;
+			resizeHandle.setPointerCapture(evt.pointerId);
+		};
+
+		const onPointerMove = (evt) => {
+			if (!isResizing) return;
+			evt.stopPropagation();
+
+			// Calculate delta in SVG space
+			const canvasData = canvas[CanvasSmbl]?.data;
+			if (!canvasData) return;
+			const scale = canvasData.scale || 1;
+			const deltaX = (evt.clientX - startX) / scale;
+			const deltaY = (evt.clientY - startY) / scale;
+
+			// Update dimensions (minimum size 50x50)
+			rectData.w = Math.max(50, startW + deltaX);
+			rectData.h = Math.max(50, startH + deltaY);
+
+			// Keep top-left corner fixed by adjusting position
+			rectData.position.x = startPosX + (rectData.w - startW) / 2;
+			rectData.position.y = startPosY + (rectData.h - startH) / 2;
+
+			currentW = rectData.w;
+			resize(false);
+			updateHandlePosition();
+		};
+
+		const onPointerUp = (evt) => {
+			if (!isResizing) return;
+			evt.stopPropagation();
+			isResizing = false;
+			resizeHandle.releasePointerCapture(evt.pointerId);
+		};
+
+		resizeHandle.addEventListener('pointerdown', onPointerDown);
+		resizeHandle.addEventListener('pointermove', onPointerMove);
+		resizeHandle.addEventListener('pointerup', onPointerUp);
+		resizeHandle.addEventListener('pointercancel', onPointerUp);
+	}
 
 	return shape.el;
 }

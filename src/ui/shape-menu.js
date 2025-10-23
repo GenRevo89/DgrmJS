@@ -15,9 +15,9 @@ export class ShapeMenu extends HTMLElement {
 				top: 50%;
 				left: 5px;
 				transform: translateY(-50%);
-				box-shadow: 0px 0px 58px 2px rgba(34, 60, 80, 0.2);
+				box-shadow: 0px 0px 58px 2px rgba(0, 0, 0, 0.5);
 				border-radius: 16px;
-				background-color: rgba(255,255,255, .9);
+				background-color: rgba(30, 30, 30, 0.95);
 			}
 
 			.content {
@@ -32,7 +32,7 @@ export class ShapeMenu extends HTMLElement {
 
 			.menu svg { padding: 10px; }
 			.stroke {
-				stroke: #344767;
+				stroke: #e0e0e0;
 				stroke-width: 2px;
 				fill: transparent;
 			}
@@ -65,8 +65,12 @@ export class ShapeMenu extends HTMLElement {
 					<svg class="stroke" data-cmd="shapeAdd" data-cmd-arg="1" viewBox="0 0 24 24" width="24" height="24"><circle r="9" cx="12" cy="12"></circle></svg>
 					<svg class="stroke" data-cmd="shapeAdd" data-cmd-arg="4" viewBox="0 0 24 24" width="24" height="24"><path d="M2 12 L12 2 L22 12 L12 22 Z" stroke-linejoin="round"></path></svg>
 					<svg class="stroke" data-cmd="shapeAdd" data-cmd-arg="2" viewBox="0 0 24 24" width="24" height="24"><rect x="2" y="4" width="20" height="16" rx="3" ry="3"></rect></svg>
-					<svg data-cmd="shapeAdd" data-cmd-arg="0" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M13 8v8a3 3 0 0 1-3 3H7.83a3.001 3.001 0 1 1 0-2H10a1 1 0 0 0 1-1V8a3 3 0 0 1 3-3h3V2l5 4-5 4V7h-3a1 1 0 0 0-1 1z" fill="rgba(52,71,103,1)"/></svg>
-					<svg data-cmd="shapeAdd" data-cmd-arg="3" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M13 6v15h-2V6H5V4h14v2z" fill="rgba(52,71,103,1)"/></svg>
+					<svg data-cmd="shapeAdd" data-cmd-arg="0" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M13 8v8a3 3 0 0 1-3 3H7.83a3.001 3.001 0 1 1 0-2H10a1 1 0 0 0 1-1V8a3 3 0 0 1 3-3h3V2l5 4-5 4V7h-3a1 1 0 0 0-1 1z" fill="rgba(224,224,224,1)"/></svg>
+					<svg data-cmd="shapeAdd" data-cmd-arg="3" viewBox="0 0 24 24" width="24" height="24"><path fill="none" d="M0 0h24v24H0z"/><path d="M13 6v15h-2V6H5V4h14v2z" fill="rgba(224,224,224,1)"/></svg>
+					<!-- Domain template -->
+					<svg class="stroke" data-cmd="shapeAdd" data-cmd-arg="6" viewBox="0 0 24 24" width="24" height="24">
+						<rect x="2" y="4" width="20" height="16" rx="6" ry="6"></rect>
+					</svg>
 				</div>
 			</div>`;
 
@@ -139,6 +143,11 @@ export class ShapeMenu extends HTMLElement {
 		const evtPoint = pointInCanvas(this._canvas[CanvasSmbl].data, evt.clientX, evt.clientY);
 
 		//  TODO: create facktory map with increasing
+		let title = 'Title';
+		// Default titles per shape type ensure rank nodes resemble existing user nodes
+		if (this._pressedShapeTemplKey === 2) { title = 'New Role\nUnfilled'; } // rect (rank)
+		if (this._pressedShapeTemplKey === 1 || this._pressedShapeTemplKey === 4) { title = 'Text'; } // circle, rhomb
+
 		const shapeData = this._pressedShapeTemplKey === 0
 			? /** @type {import('../shapes/path.js').PathData} */({
 				s: { data: { dir: 'right', position: { x: evtPoint.x - 24, y: evtPoint.y } } },
@@ -150,7 +159,9 @@ export class ShapeMenu extends HTMLElement {
 					x: evtPoint.x,
 					y: evtPoint.y
 				},
-				title: 'Title'
+				title,
+				// Palette-created rectangles are placeholders: mark as 'rank' and color orange by default
+				styles: this._pressedShapeTemplKey === 2 ? ['rank', 'cl-orange'] : undefined
 			};
 
 		const shapeEl = this._canvas[CanvasSmbl].shapeMap[this._pressedShapeTemplKey].create(shapeData);

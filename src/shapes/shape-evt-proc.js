@@ -93,10 +93,17 @@ function shapeEditEvtProc(canvas, svgGrp, shapeData, connectorsInnerPosition, te
 	const shapeProc = shapeEvtProc(canvas, svgGrp, shapeData, connectorsInnerPosition,
 		// onEdit
 		() => {
-			textEditor = textareaCreate(textSettings.el, textSettings.vMid, shapeData.title, onTxtChange, onTxtChange);
+			// Suppress inline textarea editor for shapes that use modal-only editing (rank rects, text-only shapes like circles/rhombs, domains)
+			const isModalOnly = Array.isArray(shapeData.styles) && 
+				(shapeData.styles.includes('rank') || shapeData.styles.includes('shtxt') || shapeData.styles.includes('domain'));
+			
+			if (!isModalOnly) {
+				textEditor = textareaCreate(textSettings.el, textSettings.vMid, shapeData.title, onTxtChange, onTxtChange);
+			}
 
 			const position = svgGrp.getBoundingClientRect();
-			settingsPnl = settingPnlCreate(canvas, svgGrp, position.left + 10, position.top + 10);
+			// Use bottom-left anchor for modal positioning (modalCreate expects bottom coords)
+			settingsPnl = settingPnlCreate(canvas, svgGrp, position.left + 10, position.bottom - 10);
 		},
 		// onUnselect
 		unSelect
@@ -115,7 +122,8 @@ function shapeEditEvtProc(canvas, svgGrp, shapeData, connectorsInnerPosition, te
 
 			if (settingsPnl) {
 				const position = svgGrp.getBoundingClientRect();
-				settingsPnl.position(position.left + 10, position.top + 10);
+				// Keep panel anchored to the shape's bottom-left while it moves/scales
+				settingsPnl.position(position.left + 10, position.bottom - 10);
 			}
 
 			if (textEditor) { textEditor.draw(); }

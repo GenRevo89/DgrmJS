@@ -49,6 +49,12 @@ export function path(canvas, pathData) {
 		// ends
 		endDraw(pathData.s);
 		endDraw(pathData.e);
+
+		// reposition settings panel if open
+		if (settingsPnl) {
+			const rect = svgGrp.getBoundingClientRect();
+			settingsPnl.position(rect.left + 10, rect.bottom - 10);
+		}
 	}
 
 	/** @param {PathEnd} pathEnd */
@@ -189,6 +195,24 @@ export function path(canvas, pathData) {
 					// @ts-ignore
 					pathData[movedEnd].shape = { shapeEl: elemFromPoint.parentElement, connectorKey };
 					pathAddToShape(pathData[movedEnd]);
+
+					// If a new path connects a placeholder "rank" rect to a real rank rect, request creation of a new rank
+					try {
+						const sEl = pathData.s.shape?.shapeEl;
+						const eEl = pathData.e.shape?.shapeEl;
+						const realEl = sEl?.dataset?.realRankId ? sEl : (eEl?.dataset?.realRankId ? eEl : null);
+						const placeholderEl = realEl === sEl ? eEl : (realEl === eEl ? sEl : null);
+						const isRankEl = (el) => !!el && el.classList?.contains('rank');
+
+						if (realEl && placeholderEl && isRankEl(realEl) && isRankEl(placeholderEl) && !placeholderEl.dataset?.realRankId) {
+							// Infer direction from the real node connector used
+							const realConnKey = realEl === sEl ? (pathData.s.shape?.connectorKey) : (pathData.e.shape?.connectorKey);
+							const direction = realConnKey === 'left' ? 'leftward' : realConnKey === 'right' ? 'rightward' : 'downward';
+							const parentRankId = realEl.dataset.realRankId;
+							const detail = { parentRankId, direction, placeholder: placeholderEl };
+							canvas.ownerSVGElement?.dispatchEvent(new CustomEvent('hierarchy:new-rank-request', { detail }));
+						}
+					} catch {}
 				} else {
 					placeToCell(pathData[movedEnd].data.position, canvas[CanvasSmbl].data.cell);
 				}
