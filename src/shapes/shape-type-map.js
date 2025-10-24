@@ -2,6 +2,7 @@ import { circle } from './circle.js';
 import { path } from './path.js';
 import { rect } from './rect.js';
 import { rhomb } from './rhomb.js';
+import { bracketMatch } from './bracket-match.js';
 
 /**
  * @param {CanvasElement} canvas
@@ -42,12 +43,22 @@ export function shapeTypeMap(canvas) {
 				sd.w = sd.w ?? 320;
 				sd.h = sd.h ?? 200;
 				return rect(canvas, sd);
+			} },
+		// Bracket match template (compact match card for tournament brackets)
+		7: { create: shapeData => {
+				/** @type {BracketMatchData} */ const sd = /** @type {BracketMatchData} */(shapeData);
+				sd.styles = [...(sd.styles ?? []), 'bracket-match'];
+				sd.w = sd.w ?? 200;
+				sd.h = sd.h ?? 70;
+				sd.a = sd.a ?? 1; // left align
+				return bracketMatch(canvas, sd);
 			} }
 	};
 }
 
 /** @typedef { {x:number, y:number} } Point */
 /** @typedef { import('./rect.js').RectData } RectData */
+/** @typedef { import('./bracket-match.js').BracketMatchData } BracketMatchData */
 /** @typedef { import('../infrastructure/canvas-smbl.js').CanvasElement } CanvasElement */
 /**
 @typedef {{
