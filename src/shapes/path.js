@@ -325,15 +325,33 @@ function dirByAngle(s, e) {
 
 /** @param {PathData} data */
 function pathCalc(data) {
+	// Safety checks for undefined positions
+	if (!data.s?.data?.position || !data.e?.data?.position) {
+		console.warn('[path] Invalid position data:', { s: data.s?.data?.position, e: data.e?.data?.position });
+		return 'M 0 0 L 0 0';
+	}
+
+	const sPos = data.s.data.position;
+	const ePos = data.e.data.position;
+
+	// Additional safety checks for x, y coordinates
+	if (typeof sPos.x !== 'number' || typeof sPos.y !== 'number' || 
+	    typeof ePos.x !== 'number' || typeof ePos.y !== 'number' ||
+	    isNaN(sPos.x) || isNaN(sPos.y) || isNaN(ePos.x) || isNaN(ePos.y)) {
+		console.warn('[path] Invalid coordinate values:', { sPos, ePos });
+		return 'M 0 0 L 0 0';
+	}
+
 	let coef = Math.hypot(
-		data.s.data.position.x - data.e.data.position.x,
-		data.s.data.position.y - data.e.data.position.y) * 0.5;
+		sPos.x - ePos.x,
+		sPos.y - ePos.y) * 0.5;
 	coef = coef > 70
 		? 70
 		: coef < 15 ? 15 : coef;
 
 	/** @param {PathEndData} pathEnd */
 	function cx(pathEnd) {
+		if (!pathEnd?.position || typeof pathEnd.position.x !== 'number') return 0;
 		return (pathEnd.dir === 'right' || pathEnd.dir === 'left')
 			? pathEnd.dir === 'right' ? pathEnd.position.x + coef : pathEnd.position.x - coef
 			: pathEnd.position.x;
@@ -341,13 +359,14 @@ function pathCalc(data) {
 
 	/** @param {PathEndData} pathEnd */
 	function cy(pathEnd) {
+		if (!pathEnd?.position || typeof pathEnd.position.y !== 'number') return 0;
 		return (pathEnd.dir === 'right' || pathEnd.dir === 'left')
 			? pathEnd.position.y
 			: pathEnd.dir === 'bottom' ? pathEnd.position.y + coef : pathEnd.position.y - coef;
 	}
 
-	return `M ${data.s.data.position.x} ${data.s.data.position.y} C ${cx(data.s.data)} ${cy(data.s.data)}, ` +
-		`${cx(data.e.data)} ${cy(data.e.data)}, ${data.e.data.position.x} ${data.e.data.position.y}`;
+	return `M ${sPos.x} ${sPos.y} C ${cx(data.s.data)} ${cy(data.s.data)}, ` +
+		`${cx(data.e.data)} ${cy(data.e.data)}, ${ePos.x} ${ePos.y}`;
 }
 
 /** @param {Element} element */

@@ -82,8 +82,8 @@ export function bracketMatch(canvas, matchData) {
 		txtEl => {
 			resize(false);
 		},
-		// settingsPnlCreateFn
-		bracketMatchSettingsPnlCreate);
+		// settingsPnlCreateFn - disable settings panel during registration
+		isRegistration ? null : bracketMatchSettingsPnlCreate);
 
 	classAdd(shape.el, 'shrect');
 	classAdd(shape.el, 'bracket-match');
@@ -170,9 +170,18 @@ export function bracketMatch(canvas, matchData) {
 			
 			if (listenBtn && embedContent) {
 				let isLoaded = false;
+				
+				// Disable listening during registration phase
+				if (isRegistration) {
+					listenBtn.disabled = true;
+					listenBtn.style.opacity = '0.4';
+					listenBtn.style.cursor = 'not-allowed';
+					listenBtn.innerHTML = '<span style="font-size: 32px;">🔒</span><span>Locked Until Tournament Starts</span>';
+				}
+				
 				listenBtn.addEventListener('click', (e) => {
 					e.stopPropagation();
-					if (!isLoaded) {
+					if (!isLoaded && !isRegistration) {
 						// Add proper iframe attributes for Suno embeds
 						const processedHtml = embedHtml
 							.replace(/width="[^"]*"/, 'width="100%"')
@@ -186,17 +195,19 @@ export function bracketMatch(canvas, matchData) {
 					}
 				});
 
-				// Hover effect on listen button
-				listenBtn.addEventListener('mouseenter', () => {
-					listenBtn.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(139, 92, 246, 0.35) 100%)';
-					listenBtn.style.borderColor = 'rgba(59, 130, 246, 0.6)';
-					listenBtn.style.transform = 'scale(1.02)';
-				});
-				listenBtn.addEventListener('mouseleave', () => {
-					listenBtn.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)';
-					listenBtn.style.borderColor = 'rgba(59, 130, 246, 0.4)';
-					listenBtn.style.transform = 'scale(1)';
-				});
+				// Hover effect on listen button (only if not in registration)
+				if (!isRegistration) {
+					listenBtn.addEventListener('mouseenter', () => {
+						listenBtn.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(139, 92, 246, 0.35) 100%)';
+						listenBtn.style.borderColor = 'rgba(59, 130, 246, 0.6)';
+						listenBtn.style.transform = 'scale(1.02)';
+					});
+					listenBtn.addEventListener('mouseleave', () => {
+						listenBtn.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)';
+						listenBtn.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+						listenBtn.style.transform = 'scale(1)';
+					});
+				}
 			}
 		}, 100);
 	}
